@@ -9,3 +9,5 @@ This site is a single self-contained page (`index.html`) plus a small offline sh
 ## iOS app
 
 `ios/` holds a small native wrapper (a full-screen web view around the same `index.html`). The **TestFlight** GitHub Action archives it on a macOS runner and uploads it to App Store Connect whenever `index.html` or `ios/` changes on `main`, or when run by hand from the Actions tab.
+
+Updates to `index.html` on `main` publish to the website within a minute and start a TestFlight build automatically.
