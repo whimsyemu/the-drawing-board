@@ -1,0 +1,89 @@
+name: TestFlight
+
+# Builds the iOS app (ios/) around the current index.html and uploads it to
+# App Store Connect / TestFlight. Runs on every push that touches the app,
+# or by hand from the Actions tab ("Run workflow").
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - "ios/**"
+      - ".github/workflows/testflight.yml"
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build and upload to TestFlight
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+
+      - name: Install App Store Connect API key
+        run: |
+          mkdir -p "$HOME/private_keys" build
+          printf '%s\n' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: Archive
+        run: |
+          set +e
+          xcodebuild archive \
+            -project ios/DrawingBoard.xcodeproj \
+            -scheme DrawingBoard \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/DrawingBoard.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            > build/archive.log 2>&1
+          rc=$?
+          grep -E "error:|warning: .*(sign|provision)|ARCHIVE (SUCCEEDED|FAILED)" build/archive.log || true
+          if [ $rc -ne 0 ]; then echo "::group::archive.log (tail)"; tail -n 150 build/archive.log; echo "::endgroup::"; exit $rc; fi
+
+      - name: Upload to App Store Connect
+        run: |
+          set +e
+          sed "s/TEAM_ID_PLACEHOLDER/$APPLE_TEAM_ID/" ios/ExportOptions.plist > build/ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath build/DrawingBoard.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > build/export.log 2>&1
+          rc=$?
+          grep -E "error:|Upload|EXPORT (SUCCEEDED|FAILED)" build/export.log || true
+          if [ $rc -ne 0 ]; then echo "::group::export.log (tail)"; tail -n 150 build/export.log; echo "::endgroup::"; exit $rc; fi
+
+      - name: Keep logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: build/*.log
+          if-no-files-found: ignore
