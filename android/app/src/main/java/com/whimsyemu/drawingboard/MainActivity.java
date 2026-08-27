@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 public class MainActivity extends Activity {
 
     private WebView web;
+    private SpeechBridge speech;
 
     // Served from a private https origin so localStorage persists and secure-context APIs work.
     private static final String HOST = "appassets.androidplatform.net";
@@ -45,8 +46,19 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setTextZoom(100);
 
+        final WebViewAssetLoader.AssetsPathHandler assets = new WebViewAssetLoader.AssetsPathHandler(this);
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/", path -> {
+                    if ("index.html".equals(path)) {
+                        try (java.io.InputStream in = getAssets().open("index.html")) {
+                            byte[] buf = new byte[in.available()]; int n = in.read(buf);
+                            String html = new String(buf, 0, n, "UTF-8");
+                            html = html.replaceFirst("<head>", "<head><script>" + java.util.regex.Matcher.quoteReplacement(SpeechBridge.POLYFILL) + "</script>");
+                            return new WebResourceResponse("text/html", "UTF-8", new java.io.ByteArrayInputStream(html.getBytes("UTF-8")));
+                        } catch (Exception e) { return assets.handle(path); }
+                    }
+                    return assets.handle(path);
+                })
                 .build();
 
         web.setWebViewClient(new WebViewClient() {
@@ -69,6 +81,8 @@ public class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient());                 // alert / confirm / prompt dialogs
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
+        speech = new SpeechBridge(this, web);
+        web.addJavascriptInterface(speech, "AndroidSpeech");
 
         if (savedInstanceState == null) web.loadUrl(START);
         else web.restoreState(savedInstanceState);
@@ -101,6 +115,16 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
         }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == SpeechBridge.REQUEST_AUDIO && speech != null)
+            speech.onPermissionResult(grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED);
+    }
+
+    @Override
+    protected void onDestroy() { if (speech != null) speech.destroy(); super.onDestroy(); }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {

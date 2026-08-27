@@ -340,6 +340,12 @@
     justify-content:flex-end;gap:9px;background:linear-gradient(180deg,transparent,var(--card) 32%);}
   .shclose .shbtn{background:var(--teal);color:#fff;border-color:var(--teal);padding:10px 26px}
   .shclose .shbtn:hover{background:var(--forest);border-color:var(--forest)}
+  .faq{border:1px solid var(--line);border-radius:9px;background:#fffdf8;margin-bottom:7px;padding:0 12px}
+  .faq summary{cursor:pointer;font-size:13.5px;color:var(--ink);padding:10px 0;list-style:none;display:flex;align-items:center;gap:8px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::before{content:"\203A";color:var(--amethyst);font-family:Georgia,serif;font-size:17px;line-height:1;transition:transform .2s}
+  .faq[open] summary::before{transform:rotate(90deg)}
+  .faq .faq-a{font-size:13px;color:#5a5140;line-height:1.6;padding:0 0 12px 18px}
   .sectoggle{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;
     background:#fffdf8;margin-bottom:7px;font-size:13.5px;cursor:pointer}
   .sectoggle .g{font-family:Georgia,serif;font-size:17px;width:18px;text-align:center;color:var(--amethyst)}
@@ -1154,6 +1160,23 @@ function setAll(open){
 const filedRefresh={};      /* areaId -> redraw its filed thoughts */
 let dumpRefresh=()=>{};
 
+/* ---- where a dumped thought can be filed: a life area, or a section you made ---- */
+function fileTargets(){
+  const areas=AREAS.filter(a=>cfg.enabled.includes(a.id));
+  const own=ownSections().filter(o=>cfg.enabled.includes(o.id));
+  return areas.concat(own);
+}
+function fileTargetById(id){ return byId(id)||ownSections().find(o=>o.id===id)||null; }
+function guessOwn(text,limit){
+  const t=" "+String(text||"").toLowerCase().replace(/[^a-z' ]+/g," ")+" ";
+  const hits=[];
+  ownSections().filter(o=>cfg.enabled.includes(o.id)).forEach(o=>{
+    const words=titleOf(o).toLowerCase().replace(/[^a-z' ]+/g," ").split(/\s+/).filter(w=>w.length>2&&["the","and","for","with","from","that","this","what","who","how","are","was","not","but","you","your","its"].indexOf(w)<0);
+    let n=0; words.forEach(w=>{ if(t.indexOf(" "+w+" ")>=0)n++; });
+    if(n)hits.push({o,n});
+  });
+  return hits.sort((x,y)=>y.n-x.n).slice(0,limit||2).map(x=>x.o);
+}
 function fmtTs(ts){try{return new Date(ts).toLocaleString([],{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}catch(e){return "";}}
 function saveDump(){save(LS.dump,dumpItems);}
 function refreshFiled(){Object.keys(filedRefresh).forEach(k=>{try{filedRefresh[k]();}catch(e){}});}
@@ -1240,7 +1263,7 @@ function dumpModule(pad,sec){
   const toggle=document.createElement("div"); toggle.className="dump-toggle";
   const list=document.createElement("div"); list.className="dump-list";
 
-  function areaTitle(id){const s=byId(id);return s?titleOf(s):"";}
+  function areaTitle(id){const s=fileTargetById(id);return s?titleOf(s):"";}
 
   function drawList(){
     toggle.textContent="✒ what you've let go ("+dumpItems.length+")";
@@ -1256,7 +1279,8 @@ function dumpModule(pad,sec){
       const b=document.createElement("span"); b.textContent=it.text;
       d.appendChild(t); d.appendChild(b);
       const tag=document.createElement("span"); tag.className="dump-tag";
-      tag.textContent=it.area?("→ "+areaTitle(it.area)):"+ file this somewhere";
+      const at=it.area?areaTitle(it.area):"";
+      tag.textContent=at?("→ "+at):"+ file this somewhere";
       tag.title="choose where this lives";
       tag.onclick=()=>askWhere(it,true);
       d.appendChild(document.createElement("br")); d.appendChild(tag);
@@ -1281,13 +1305,16 @@ function dumpModule(pad,sec){
 
   /* which of the person's own areas is this thought about? */
   function askWhere(item,force){
-    const enabledAreas=AREAS.filter(a=>cfg.enabled.includes(a.id));
-    if(!enabledAreas.length){nudge.classList.remove("open");return;}
-    let guess=guessAreas(item.text,3).filter(a=>cfg.enabled.includes(a.id));
-    if(force||!guess.length)guess=enabledAreas.slice(0,6);
-    nq.textContent=guess.length&&!force?"this sounded like it might belong here — want to file it?":"where should this live?";
+    /* anywhere a thought can live: the life areas that are on, and the sections you made yourself */
+    const targets=fileTargets();
+    if(!targets.length){nudge.classList.remove("open");return;}
+    let guess=guessAreas(item.text,3).filter(a=>cfg.enabled.includes(a.id)).concat(guessOwn(item.text,2));
+    const guessed=!force&&guess.length>0;
+    if(!guessed)guess=[];
+    const rest=targets.filter(t=>!guess.some(g=>g.id===t.id));
+    nq.textContent=guessed?"this sounded like it might belong here — want to file it?":"where should this live?";
     nrow.innerHTML="";
-    guess.forEach(a=>{
+    const chip=(a)=>{
       const c=document.createElement("button"); c.type="button"; c.className="filechip";
       c.textContent=glyphOf(a)+"  "+titleOf(a);
       c.onclick=()=>{
@@ -1298,8 +1325,17 @@ function dumpModule(pad,sec){
         nrow.appendChild(done);
         setTimeout(()=>nudge.classList.remove("open"),2600);
       };
-      nrow.appendChild(c);
-    });
+      return c;
+    };
+    guess.forEach(a=>nrow.appendChild(chip(a)));
+    if(guessed&&rest.length){
+      const more=document.createElement("button"); more.type="button"; more.className="filechip no";
+      more.textContent="or one of yours…";
+      more.onclick=()=>{ more.remove(); rest.slice(0,10).forEach(a=>nrow.insertBefore(chip(a),no)); };
+      nrow.appendChild(more);
+    } else {
+      rest.slice(0,10).forEach(a=>nrow.appendChild(chip(a)));
+    }
     const no=document.createElement("button"); no.type="button"; no.className="filechip no";
     no.textContent="leave it for now";
     no.onclick=()=>nudge.classList.remove("open");
@@ -2631,7 +2667,7 @@ function buildBoard(){
   ownSections().forEach(o=>{
     if(!on(o.id))return;
     defs.push({id:o.id, glyph:cfg.glyphs[o.id]||o.glyph, title:cfg.titles[o.id]||o.title,
-               countLabel:"", own:true});
+               countLabel:"", own:true, build:filedThoughts});
   });
 
   SECTIONS=defs;
@@ -2881,6 +2917,27 @@ try{ initMarkers(); }catch(e){} };
     };
     rowWrap.appendChild(row); rowWrap.appendChild(tools); gs.appendChild(rowWrap);
   });
+  ownSections().forEach(o=>{
+    const row=document.createElement("div"); row.className="sectoggle"+(cfg.enabled.includes(o.id)?" on":"");
+    const g=document.createElement("span"); g.className="g"; g.textContent=glyphOf(o);
+    const nm=document.createElement("span"); nm.style.flex="1"; nm.textContent=titleOf(o);
+    const tick=document.createElement("span"); tick.className="tick"; tick.textContent="\u2713";
+    row.appendChild(g); row.appendChild(nm); row.appendChild(tick);
+    row.onclick=()=>{
+      const i=cfg.enabled.indexOf(o.id);
+      if(i>=0)cfg.enabled.splice(i,1); else cfg.enabled.push(o.id);
+      saveCfg(); row.classList.toggle("on",cfg.enabled.includes(o.id)); buildBoard();
+    };
+    gs.appendChild(row);
+  });
+  const addOwn=document.createElement("button"); addOwn.className="shbtn"; addOwn.style.marginTop="4px";
+  addOwn.textContent="+ add a section of your own";
+  addOwn.onclick=()=>{
+    const v=prompt("What do you want to call it?","");
+    if(!v||!v.trim())return;
+    addOwnSection(v.trim(),"\u2726"); buildBoard(); openSheet(); softToast("Added. It's on your board now.");
+  };
+  gs.appendChild(addOwn);
 
   /* --- affirmations --- */
   const ga=group("Words for you","A line shows up now and then when you open the board. Pick the kinds that actually help, write your own, or turn them off entirely.");
@@ -2987,6 +3044,45 @@ try{ initMarkers(); }catch(e){} };
     location.reload();
   };
   gb.appendChild(wipe);
+
+  /* --- questions people ask --- */
+  const gq=group("Questions people ask","Tap a question to open it.");
+  const FAQ=[
+    ["Where does my writing go?",
+     "Nowhere. It's saved inside this app (or this browser) on this device only. There's no account, no server, and we never see it."],
+    ["What happens when I tap “let it go”?",
+     "Your thought is saved into <i>what you've let go</i>, just below. It stays there — nothing is deleted or sent anywhere. The app may guess which part of your life it belongs to and offer to file it."],
+    ["What does “file this somewhere” do?",
+     "It tags the thought with one of your sections — a life area or a section you made yourself — so it also shows up there under <i>from your thought dump</i>. It stays in your dump too: one thought, visible in two places. Nothing is moved or deleted."],
+    ["What is “help me untangle this”?",
+     "Three questions that walk you from a swirling thought to one next step you choose. It never tells you what to do."],
+    ["What's the little line that appears after I let something go?",
+     "A perspective — it reacts to the <i>shape</i> of what you wrote (an “always”, a “never”, a “what if”), not to you. Take it or leave it."],
+    ["Can I get a different prompt?",
+     "Yes — tap ↻ <i>a different question</i> whenever one doesn't fit today."],
+    ["The “words for you” — what are those?",
+     "Short lines you picked (or wrote) that show up now and then when you open the app. Change them or turn them off any time under <i>Words for you</i>, just above."],
+    ["Can I lose my writing?",
+     "Only if this device's app or browser data is cleared, or the app is deleted. Tap <i>download a backup</i> every so often; <i>restore from a backup</i> puts it all back."],
+    ["I forgot my password.",
+     "There's no reset — no account, no email. Your hint is the way back in, so make it one future-you will understand. Your writing is still on the device; a backup taken earlier can be restored without the password."],
+    ["Is my board the same on my phone and my computer?",
+     "In the iPhone and Mac app, yes — it stays in step through your own iCloud, privately. On the website, each device keeps its own board (use a backup to move it)."],
+    ["Who can read this?",
+     "No one. The feedback button opens your own mail app with a blank message; only what you type there is sent, and only if you send it."],
+    ["Can I add my own sections?",
+     "Yes — <i>Your sections</i>, above, has <i>add a section of your own</i>. Turning a section off keeps its writing; turning it back on brings it back."]
+  ];
+  FAQ.forEach(([q,a])=>{
+    const d=document.createElement("details"); d.className="faq";
+    const s=document.createElement("summary"); s.textContent=q;
+    const p=document.createElement("div"); p.className="faq-a"; p.innerHTML=a;
+    d.appendChild(s); d.appendChild(p); gq.appendChild(d);
+  });
+  const qrow=document.createElement("div"); qrow.className="shrow"; qrow.style.marginTop="12px";
+  const qfb=document.createElement("button"); qfb.className="shbtn"; qfb.textContent="✉ something else? send feedback";
+  qfb.onclick=()=>{ openFeedback(); };
+  qrow.appendChild(qfb); gq.appendChild(qrow);
 
   const close=document.createElement("div"); close.className="shclose";
   const cb=document.createElement("button"); cb.className="shbtn"; cb.textContent="done"; cb.onclick=closeSheet;

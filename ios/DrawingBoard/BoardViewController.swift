@@ -11,6 +11,7 @@ final class BoardViewController: UIViewController {
 
     private var webView: WKWebView!
     private(set) var sync: CloudSync?
+    private var speech: SpeechBridge?
     private var restoreChecked = false
     private var pendingDownloadURL: URL?
 
@@ -39,11 +40,16 @@ final class BoardViewController: UIViewController {
             WKUserScript(source: startupScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         config.userContentController.addUserScript(
             WKUserScript(source: CloudSync.bridgeScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        config.userContentController.addUserScript(
+            WKUserScript(source: SpeechBridge.polyfill, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         webView = WKWebView(frame: .zero, configuration: config)
         let sync = CloudSync(webView: webView)
         config.userContentController.add(sync, name: CloudSync.handlerName)
         self.sync = sync
+        let speech = SpeechBridge(webView: webView)
+        config.userContentController.add(speech, name: SpeechBridge.handlerName)
+        self.speech = speech
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.isOpaque = false

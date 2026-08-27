@@ -24,6 +24,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>So you can speak a thought instead of typing it. Audio is used only for dictation, on this device when possible.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Turns your voice into text for the board. Nothing is stored or sent by the app.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
