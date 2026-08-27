@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+def buildNumber = (System.getenv("BUILD_NUMBER") ?: "1").toInteger()
+
+android {
+    namespace 'com.whimsyemu.drawingboard'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.whimsyemu.drawingboard"
+        minSdk 24
+        targetSdk 35
+        versionCode buildNumber
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            def ks = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (ks != null) {
+                storeFile file(ks)
+                storeType "PKCS12"
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.core:core:1.13.1'
+}

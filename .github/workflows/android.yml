@@ -1,0 +1,51 @@
+name: Android
+
+# Builds the Android app (android/) around the current index.html.
+# Produces an .aab for Google Play and an .apk for direct installs, as workflow artifacts.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - "android/**"
+      - ".github/workflows/android.yml"
+
+jobs:
+  build:
+    name: Build Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Put the board into the app
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp index.html android/app/src/main/assets/index.html
+      - name: Signing key
+        run: |
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/upload.p12"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/upload.p12" >> "$GITHUB_ENV"
+      - name: Build (bundle for Play + apk for direct install)
+        working-directory: android
+        run: |
+          gradle wrapper --gradle-version 8.11.1 --no-daemon -q
+          ./gradlew --no-daemon -q :app:bundleRelease :app:assembleRelease
+          ls -la app/build/outputs/bundle/release app/build/outputs/apk/release
+      - name: Keep the builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk

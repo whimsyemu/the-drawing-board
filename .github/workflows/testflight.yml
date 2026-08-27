@@ -8,6 +8,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - index.html
+      - "ios/**"
+      - ".github/workflows/testflight.yml"
 
 concurrency:
   group: testflight
