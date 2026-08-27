@@ -10,6 +10,7 @@ final class BoardViewController: UIViewController {
     static let boardColor = UIColor(red: 0x24 / 255.0, green: 0x1F / 255.0, blue: 0x38 / 255.0, alpha: 1)
 
     private var webView: WKWebView!
+    private(set) var sync: CloudSync?
     private var restoreChecked = false
     private var pendingDownloadURL: URL?
 
@@ -36,8 +37,13 @@ final class BoardViewController: UIViewController {
         """
         config.userContentController.addUserScript(
             WKUserScript(source: startupScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        config.userContentController.addUserScript(
+            WKUserScript(source: CloudSync.bridgeScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         webView = WKWebView(frame: .zero, configuration: config)
+        let sync = CloudSync(webView: webView)
+        config.userContentController.add(sync, name: CloudSync.handlerName)
+        self.sync = sync
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.isOpaque = false
@@ -153,6 +159,7 @@ extension BoardViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         restoreIfEmpty()
+        sync?.bootstrap()
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

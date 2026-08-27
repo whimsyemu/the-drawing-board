@@ -12,6 +12,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
     }
 
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        board?.sync?.becameActive()
+    }
+
     func sceneWillResignActive(_ scene: UIScene) {
         board?.snapshotStorage()
     }
