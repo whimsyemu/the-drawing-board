@@ -395,12 +395,13 @@
   .stickon .peel.grow{top:auto;bottom:-7px;right:-7px;background:#5c6b47}
   .stickon .peel.shrinkb{top:auto;bottom:-7px;right:auto;left:-7px;background:#8a8172}
   .stickon .peel.capb{top:50%;left:-7px;transform:translateY(-50%);background:#7b4d68}
-  .stickdrawer{border:1px dashed color-mix(in srgb, var(--accent) 40%, var(--line));border-radius:12px;padding:12px;margin:0 0 14px;background:color-mix(in srgb, var(--accent) 5%, #fffdf8)}
-  .sticknote{font-size:12px;color:#7a6f5c;font-style:italic;margin-bottom:9px;line-height:1.5}
-  .stickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
-  .stickpick{border:1px solid var(--line);border-radius:10px;background:#fffdf8;padding:5px;cursor:pointer;aspect-ratio:1}
-  .stickpick svg{width:100%;height:100%}
-  .stickpick:hover{border-color:var(--amethyst);background:#fff}
+  .stickdrawer{border:1px dashed color-mix(in srgb, var(--accent) 35%, var(--line));border-radius:14px;padding:14px 14px 10px;margin:0 0 14px;background:color-mix(in srgb, var(--accent) 4%, #fbf7ec)}
+  .sticknote{font-size:11.5px;color:#8a8172;font-style:italic;margin-bottom:8px;line-height:1.5}
+  .stickgrid{display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center}
+  .stickpick{border:none;background:transparent;padding:2px;cursor:pointer;width:58px;height:58px;transition:transform .15s}
+  .stickpick svg{width:100%;height:100%;filter:drop-shadow(0 2px 2.5px rgba(60,45,30,.22))}
+  .stickpick:nth-child(3n){transform:rotate(5deg)} .stickpick:nth-child(3n+1){transform:rotate(-4deg)}
+  .stickpick:hover{transform:scale(1.18) rotate(0deg)}
   /* ===== the month ===== */
   .cal-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .cal-title{font-family:Georgia,serif;font-size:16.5px;color:var(--ink);flex:1;text-align:center}
@@ -2989,12 +2990,12 @@ function drawStickerField(field, sec){
 function stickerDrawer(pad, sec, field){
   const d=document.createElement("div"); d.className="stickdrawer";
   const note=document.createElement("div"); note.className="sticknote";
-  note.textContent="little painted things — tap one to stick it on, then drag it anywhere in this section. Tap a stuck one for its peel-off \u00d7.";
+  note.textContent="tap to stick one on \u2014 drag it anywhere. tap a stuck one to peel it off.";
   d.appendChild(note);
   const packIds=STICKER_PACKS[sec.id]||[];
   if(packIds.length){
     const pl=document.createElement("div"); pl.className="sticknote"; pl.style.marginBottom="6px";
-    pl.textContent="made for this section:";
+    pl.textContent="for this section \u2193";
     d.appendChild(pl);
     const prow=document.createElement("div"); prow.className="stickgrid"; prow.style.marginBottom="10px";
     packIds.map(stickerById).filter(Boolean).forEach(art=>{
