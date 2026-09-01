@@ -354,6 +354,12 @@
   .piece.open .piece-body{display:block}
   .piece-body textarea{width:100%;box-sizing:border-box;min-height:120px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:13.5px;font-family:inherit;background:#fff;line-height:1.65;resize:vertical}
   .piece-tools{display:flex;gap:8px;margin-top:9px;justify-content:flex-end}
+  .pclist{padding:2px 0}
+  .pclist-row{display:flex;gap:9px;align-items:flex-start;padding:7px 4px;border-radius:8px;cursor:pointer;font-size:13.5px;line-height:1.55;color:#3f3f3f}
+  .pclist-row:hover{background:color-mix(in srgb, var(--accent) 6%, transparent)}
+  .pclist-row .box{color:var(--accent);font-size:16px;line-height:1.2;flex:none}
+  .pclist-row.done .tx{color:#8a8172;text-decoration:line-through;text-decoration-color:color-mix(in srgb, #8a8172 60%, transparent)}
+  .pclist-plain{padding:6px 4px;font-size:13.5px;line-height:1.55;color:#3f3f3f;white-space:pre-wrap}
   .piece-add{margin-top:4px;border:1px dashed color-mix(in srgb, var(--accent) 45%, var(--line));background:transparent;color:var(--accent);font:inherit;font-size:12.5px;border-radius:16px;padding:7px 16px;cursor:pointer}
   .piece-add:hover{background:color-mix(in srgb, var(--accent) 8%, #fff)}
 
@@ -369,7 +375,7 @@
   html.acc-calm *,html.acc-calm *::before,html.acc-calm *::after{animation:none!important;transition:none!important}
   html.acc-calm .hero::after,html.acc-calm .stars{display:none!important}
   html.acc-noread .readbtn{display:none!important}
-  .readbtn{border:none;background:transparent;font-size:15px;cursor:pointer;opacity:.55;padding:4px 6px;border-radius:8px;line-height:1}
+  .readbtn{border:none;background:transparent;color:var(--accent,#7a5c99);font-size:15px;cursor:pointer;opacity:.55;padding:4px 6px;border-radius:8px;line-height:1;display:inline-flex;align-items:center}
   .readbtn:hover{opacity:1;background:rgba(150,130,190,.14)}
   .readbtn.reading{opacity:1;background:color-mix(in srgb, var(--accent) 18%, #fff);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
   .readbtn-sm{position:absolute;bottom:6px;right:9px;font-size:13px}
@@ -2602,6 +2608,52 @@ function piecesModule(pad, sec){
       const ta = document.createElement("textarea");
       ta.value = pc.body || ""; ta.placeholder = "…";
       ta.addEventListener("input", () => { pc.body = ta.value; savePieces(); });
+
+      /* lines that came in as ☑ / ☐ tick boxes become real, tappable ones */
+      const CHECKED = "\u2611\u2705"; const UNCHECKED = "\u2610\u25a1\u25fb";
+      const isCheckable = t => (t||"").split("\n").some(l => {
+        const c = l.trim().charAt(0);
+        return CHECKED.indexOf(c) >= 0 || UNCHECKED.indexOf(c) >= 0;
+      });
+      const listWrap = document.createElement("div"); listWrap.className = "pclist";
+      function drawChecklist(){
+        listWrap.innerHTML = "";
+        const lines = (pc.body||"").split("\n");
+        lines.forEach((line, li) => {
+          const t = line.trim(); const c = t.charAt(0);
+          const checked = CHECKED.indexOf(c) >= 0, un = UNCHECKED.indexOf(c) >= 0;
+          if (checked || un) {
+            const row = document.createElement("div");
+            row.className = "pclist-row" + (checked ? " done" : "");
+            const box = document.createElement("span"); box.className = "box";
+            box.textContent = checked ? "\u2611" : "\u2610";
+            const tx = document.createElement("span"); tx.className = "tx";
+            tx.textContent = t.slice(1).trim();
+            row.appendChild(box); row.appendChild(tx);
+            row.onclick = () => {
+              const lead = line.slice(0, line.indexOf(c));
+              lines[li] = lead + (checked ? "\u2610" : "\u2611") + line.slice(line.indexOf(c) + 1);
+              pc.body = lines.join("\n"); ta.value = pc.body; savePieces(); drawChecklist();
+            };
+            listWrap.appendChild(row);
+          } else if (t) {
+            const p = document.createElement("div"); p.className = "pclist-plain"; p.textContent = line;
+            listWrap.appendChild(p);
+          }
+        });
+      }
+      let editing = false;
+      const editBtn = document.createElement("button");
+      editBtn.type = "button"; editBtn.className = "shbtn"; editBtn.textContent = "\u270e edit the words";
+      editBtn.onclick = () => {
+        editing = !editing;
+        ta.style.display = editing ? "" : "none";
+        listWrap.style.display = editing ? "none" : "";
+        editBtn.textContent = editing ? "\u2713 done editing" : "\u270e edit the words";
+        if (!editing) drawChecklist();
+      };
+      const checkable = isCheckable(pc.body);
+      if (checkable) { drawChecklist(); ta.style.display = "none"; }
       const tools = document.createElement("div"); tools.className = "piece-tools";
       const ren = document.createElement("button"); ren.type = "button"; ren.className = "shbtn"; ren.textContent = "rename";
       ren.onclick = () => {
@@ -2614,7 +2666,9 @@ function piecesModule(pad, sec){
         pieces[sec.id] = (pieces[sec.id] || []).filter(x => x.id !== pc.id);
         savePieces(); draw();
       };
+      if (checkable) { tools.appendChild(editBtn); }
       tools.appendChild(ren); tools.appendChild(del);
+      if (checkable) body.appendChild(listWrap);
       body.appendChild(ta); body.appendChild(tools);
 
       head.onclick = e => { if(e.target === title && item.classList.contains("open")) return;
@@ -2778,7 +2832,7 @@ function addReadBtn(head, section, sec){
   if(!canSpeak()) return;
   const b = document.createElement("button");
   b.type = "button"; b.className = "readbtn";
-  b.textContent = "🔊"; b.title = "read this section to me";
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.5 7a7.5 7.5 0 0 1 0 10"/></svg>'; b.title = "read this section to me";
   b.setAttribute("aria-label", "read this section out loud");
   b.addEventListener("click", e=>{
     e.stopPropagation();
@@ -2792,7 +2846,7 @@ function addReadChip(itemEl, text){
   if(!canSpeak()) return;
   const b = document.createElement("button");
   b.type = "button"; b.className = "readbtn readbtn-sm";
-  b.textContent = "🔊"; b.title = "read this back to me";
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.5 7a7.5 7.5 0 0 1 0 10"/></svg>'; b.title = "read this back to me";
   b.setAttribute("aria-label", "read this thought out loud");
   b.addEventListener("click", e=>{ e.stopPropagation(); speakText(text, b); });
   itemEl.appendChild(b);
