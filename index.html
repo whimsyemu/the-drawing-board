@@ -2923,7 +2923,7 @@ function drawStickerField(field, sec){
       cyc.title="change the cut-out shape";
       cyc.addEventListener("pointerdown",e=>{
         e.stopPropagation(); e.preventDefault();
-        const shapes=["arch","circle","scallop","heart","torn","slide"];
+        const shapes=(it.shape==="magic"||it.magicSrc)?["magic","arch","circle","scallop","heart","torn","slide"]:["arch","circle","scallop","heart","torn","slide"];
         it.shape=shapes[(shapes.indexOf(it.shape||"arch")+1)%shapes.length];
         const s=stickerState(); s[sec.id]=normStickers(s[sec.id]); if(s[sec.id][i])s[sec.id][i].shape=it.shape;
         save(LS.stick,s); b.innerHTML=cutoutSvg(it.img,it.shape,it.cap); b.appendChild(cyc); b.appendChild(big); b.appendChild(sml); b.appendChild(capb); b.appendChild(peel);
@@ -3018,12 +3018,26 @@ function stickerDrawer(pad, sec, field){
     const file=cf.files[0]; if(!file)return;
     const r=new FileReader();
     r.onload=()=>{
-      shrinkImage(r.result,460,url=>{
-        const s=stickerState(); s[sec.id]=normStickers(s[sec.id]);
-        s[sec.id].push({type:"photo", img:url, shape:"arch", w:120, x:8+Math.floor(Math.random()*55), y:4+Math.floor(Math.random()*10)});
-        try{ save(LS.stick,s); }catch(e){ softToast("That photo was too big to keep — try a smaller one."); return; }
-        drawStickerField(field,sec);
-        softToast("Cut out and stuck on. Drag it anywhere; tap it for shape \u27f3, size + \u2212, and the \u00d7.");
+      shrinkImage(r.result,700,url=>{
+        const finish=(img,magic)=>{
+          const s=stickerState(); s[sec.id]=normStickers(s[sec.id]);
+          s[sec.id].push({type:"photo", img:img, shape:(magic?"magic":"arch"), w:130, x:8+Math.floor(Math.random()*55), y:4+Math.floor(Math.random()*10)});
+          try{ save(LS.stick,s); }catch(e){ softToast("That photo was too big to keep — try a smaller one."); return; }
+          drawStickerField(field,sec);
+          softToast(magic?"Lifted right off its background — drag it anywhere.":"Cut out and stuck on. Drag it anywhere; tap it for shape \u27f3, size + \u2212, and the \u00d7.");
+        };
+        /* Canva-style magic grab: on the apps, the device lifts the subject off the background */
+        if(window.__magicGrab && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cutout){
+          const id="c"+Date.now();
+          window.__cutoutPending=window.__cutoutPending||{};
+          window.__cutoutResult=window.__cutoutResult||function(rid,png){
+            const f=window.__cutoutPending[rid]; delete window.__cutoutPending[rid]; if(f)f(png);
+          };
+          window.__cutoutPending[id]=png=>finish(png||url,!!png);
+          try{ window.webkit.messageHandlers.cutout.postMessage({id:id,data:url}); softToast("Lifting it off the background\u2026"); }
+          catch(e){ delete window.__cutoutPending[id]; finish(url,false); }
+          setTimeout(()=>{ if(window.__cutoutPending[id]){ delete window.__cutoutPending[id]; finish(url,false); } },9000);
+        } else finish(url,false);
       });
       cf.value="";
     };
@@ -3115,6 +3129,9 @@ function applyHeroLight(){ document.documentElement.classList.toggle("hero-light
 
 /* photo cut-outs — scissors shapes for a photo */
 function cutoutSvg(img, shape, cap){
+  if(shape==="magic"){
+    return '<svg viewBox="0 0 100 100" width="100%" height="100%"><image href="'+img+'" x="1" y="1" width="98" height="98" preserveAspectRatio="xMidYMid meet"/></svg>';
+  }
   if(shape==="slide"){
     const esc=String(cap||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).slice(0,26);
     return '<svg viewBox="0 0 100 100" width="100%" height="100%">'+

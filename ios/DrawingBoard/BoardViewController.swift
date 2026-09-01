@@ -34,6 +34,7 @@ final class BoardViewController: UIViewController {
           s.textContent='#installnote{display:none !important}';
           (document.head||document.documentElement).appendChild(s);
           window.__drawingBoardNative='ios';
+          window.__magicGrab=true;
         })();
         """
         config.userContentController.addUserScript(
@@ -50,6 +51,7 @@ final class BoardViewController: UIViewController {
         let speech = SpeechBridge(webView: webView)
         config.userContentController.add(speech, name: SpeechBridge.handlerName)
         self.speech = speech
+        config.userContentController.add(SubjectCutout(webView: webView), name: SubjectCutout.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.isOpaque = false
