@@ -3013,7 +3013,10 @@ function stickerDrawer(pad, sec, field){
   /* photo cut-outs, like scissors and a magazine */
   const cutrow=document.createElement("div"); cutrow.className="shrow"; cutrow.style.margin="0 0 10px";
   const cut=document.createElement("label"); cut.className="shbtn"; cut.textContent="\u2702 add a photo cut-out";
-  const cf=document.createElement("input"); cf.type="file"; cf.accept="image/*"; cf.style.display="none";
+  cut.style.position="relative"; cut.style.overflow="hidden";
+  const cf=document.createElement("input"); cf.type="file"; cf.accept="image/*";
+  cf.style.cssText="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:16px";
+  cf.setAttribute("aria-label","add a photo cut-out");
   cf.addEventListener("change",()=>{
     const file=cf.files[0]; if(!file)return;
     const r=new FileReader();
@@ -3591,7 +3594,9 @@ function buildSheet(){
   const gp=group("Or your own photo","Use a picture of your own instead. It stays on your device like everything else.");
   const prow=document.createElement("div"); prow.className="shrow";
   const upl=document.createElement("label"); upl.className="shbtn"; upl.textContent="🖼 choose a photo";
-  const f=document.createElement("input"); f.type="file"; f.accept="image/*"; f.style.display="none";
+  upl.style.position="relative"; upl.style.overflow="hidden";
+  const f=document.createElement("input"); f.type="file"; f.accept="image/*";
+  f.style.cssText="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:16px"; f.setAttribute("aria-label","choose a photo");
   f.addEventListener("change",()=>{
     const file=f.files[0]; if(!file)return;
     const r=new FileReader();
@@ -3804,7 +3809,9 @@ try{ initMarkers(); }catch(e){} };
   const brow=document.createElement("div"); brow.className="shrow";
   const bk=document.createElement("button"); bk.className="shbtn"; bk.textContent="⤓ download a backup"; bk.onclick=doBackup;
   const rs=document.createElement("label"); rs.className="shbtn"; rs.textContent="⤒ restore from a backup";
-  const rf=document.createElement("input"); rf.type="file"; rf.accept="application/json,.json"; rf.style.display="none";
+  rs.style.position="relative"; rs.style.overflow="hidden";
+  const rf=document.createElement("input"); rf.type="file"; rf.accept="application/json,.json";
+  rf.style.cssText="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:16px"; rf.setAttribute("aria-label","restore from a backup");
   rf.addEventListener("change",()=>{
     const file=rf.files[0]; if(!file)return;
     const r=new FileReader();
