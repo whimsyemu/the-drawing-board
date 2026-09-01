@@ -12,6 +12,10 @@ final class CloudSync: NSObject, WKScriptMessageHandler {
     static let namespace = "dbshare1."
     static let handlerName = "dbsync"
 
+    /// For the sync X-ray: when iCloud last pushed changes to this device.
+    static var lastExternal: Date?
+    static var lastExternalKeys = 0
+
     /// Per-device things that should not travel, plus the background photo
     /// (a full-size photo is far bigger than iCloud key-value storage allows).
     private static let skipKeys: Set<String> = [
@@ -92,6 +96,8 @@ final class CloudSync: NSObject, WKScriptMessageHandler {
     @objc private func cloudChanged(_ note: Notification) {
         let changed = (note.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String]) ?? []
         let keys = changed.filter { $0.hasPrefix(Self.namespace) }
+        Self.lastExternal = Date()
+        Self.lastExternalKeys = keys.count
         DispatchQueue.main.async { self.applyRemote(keys: keys, reloadIfIdle: true) }
     }
 
