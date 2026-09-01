@@ -3921,6 +3921,18 @@ function doBackup(){
 try{ initMarkers(); }catch(e){}
 try{ initDrawing(); }catch(e){}
 buildPaletteDots();
+/* Never show "Make this yours" on top of a board that already holds writing —
+   whether it arrived by restore, by sync, or was here all along. Nobody should be
+   able to type a name over someone's existing board. */
+try{
+  if(!load(LS.onb,0)){
+    const hasWriting = (load(LS.dump,[])||[]).length>0
+      || Object.keys(load(LS.pieces,{})||{}).length>0
+      || Object.keys(load(LS.notes,{})||{}).length>0
+      || (load(LS.words,[])||[]).length>0;
+    if(hasWriting) save(LS.onb,1);
+  }
+}catch(e){}
 if(load(LS.onb,0)){
   buildBoard();
   /* a quiet word when you open it — only once you've said you want them */
