@@ -70,6 +70,53 @@ final class BoardViewController: UIViewController {
         ])
 
         loadBoard()
+
+        // Tiny sync X-ray (temporary): a faint "sync" in the corner that
+        // reports what this device and iCloud can see of each other.
+        let syncBtn = UIButton(type: .system)
+        syncBtn.setTitle("\u{00b7} sync", for: .normal)
+        syncBtn.titleLabel?.font = .systemFont(ofSize: 11)
+        syncBtn.tintColor = UIColor.white.withAlphaComponent(0.35)
+        syncBtn.translatesAutoresizingMaskIntoConstraints = false
+        syncBtn.addTarget(self, action: #selector(showSyncInfo), for: .touchUpInside)
+        view.addSubview(syncBtn)
+        NSLayoutConstraint.activate([
+            syncBtn.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
+            syncBtn.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -4),
+        ])
+    }
+
+    @objc private func showSyncInfo() {
+        let cloud = NSUbiquitousKeyValueStore.default
+        let synced = cloud.synchronize()
+        let dict = cloud.dictionaryRepresentation
+        let dataKeys = dict.keys.filter { $0.hasPrefix(CloudSync.namespace) }
+        let tsKeys = dict.keys.filter { $0.hasPrefix("ts:") }
+        var bytes = 0
+        for (k, v) in dict { bytes += k.utf8.count; if let s = v as? String { bytes += s.utf8.count } }
+        let token = FileManager.default.ubiquityIdentityToken != nil ? "yes" : "NO"
+        let ext: String
+        if let d = CloudSync.lastExternal {
+            ext = "\(Int(-d.timeIntervalSinceNow))s ago (\(CloudSync.lastExternalKeys) keys)"
+        } else {
+            ext = "never this launch"
+        }
+        webView.evaluateJavaScript("localStorage.length") { [weak self] result, _ in
+            let localCount = (result as? Int) ?? -1
+            let report = """
+            iCloud signed in: \(token)
+            synchronize(): \(synced)
+            board keys in iCloud: \(dataKeys.count)
+            ts markers in iCloud: \(tsKeys.count)
+            approx iCloud bytes: \(bytes)
+            last push from iCloud: \(ext)
+            localStorage items here: \(localCount)
+            """
+            let alert = UIAlertController(title: "Sync check", message: report, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Copy", style: .default) { _ in UIPasteboard.general.string = report })
+            alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+            self?.present(alert, animated: true)
+        }
     }
 
     private func loadBoard() {
